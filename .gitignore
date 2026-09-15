@@ -1,0 +1,12 @@
+node_modules/
+build/
+.svelte-kit/
+storage/
+.env
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
