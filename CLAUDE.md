@@ -1,6 +1,6 @@
 # toolbox
 
-Ferretería local: utilidades que reemplazan sitios ajenos (xdownload, TinyPNG, transcripción, metadatos, URLs). El archivo no sale de la máquina.
+Ferretería local: utilidades que reemplazan sitios ajenos (xdownload, TinyPNG, transcripción, metadatos, URLs, recorte, hash, pegado sucio). El archivo no sale de la máquina.
 
 **Para visión, features, motores y no-goals, leer primero `NORTH.md`.** Si una decisión técnica contradice NORTH, se discute primero ahí.
 
@@ -34,13 +34,15 @@ Spawn con `Bun.spawn` / `spawn` y **array de argumentos**. Nunca concatenar una 
 | OpenAI Audio API | `gpt-transcribe` (default) y `whisper-1`. Key: `OPENAI_API_KEY` en `.env` (nunca al cliente). |
 | exifr | in-process, lectura |
 | exiftool | CLI, strip |
-| jobs + sqlite + SSE | descargas y transcripciones largas |
+| jobs + sqlite + SSE | descargas, transcripciones y recortes |
+| @noble/hashes | BLAKE3 |
+| uqr + jsQR | QR generar / leer, solo cliente |
 
 Si un binario no está, esa tool muestra el error y cómo instalarlo. Las otras tools siguen.
 
 ## Salida
 
-`storage/` en la raíz del proyecto, gitignored, una subcarpeta por tool (`downloads/`, `compress/`, `transcribe/`, `metadata/`, …). La UI tiene “mostrar en el explorador”. No streamear videos enormes por el diálogo de descargas del browser como camino principal.
+`storage/` en la raíz del proyecto, gitignored, una subcarpeta por tool (`downloads/`, `compress/`, `transcribe/`, `metadata/`, `cut/`, …). La UI tiene “mostrar en el explorador”. No streamear videos enormes por el diálogo de descargas del browser como camino principal.
 
 ## Despliegue
 
@@ -81,13 +83,15 @@ src/
     server/
       db.ts            # bun:sqlite, tabla jobs
       jobs.ts          # cola + spawn + progreso
-      binaries.ts      # detectar yt-dlp, ffmpeg, whisper-cli, exiftool
+      binaries.ts      # detectar yt-dlp, ffmpeg, ffprobe, exiftool
       download.ts
       compress.ts
       transcribe.ts
       metadata.ts
       urls.ts
       markdown.ts
+      cut.ts
+      hash.ts
     components/
       ui/              # shadcn-svelte
   routes/
@@ -99,6 +103,11 @@ src/
     transcribe/
     metadata/
     urls/
+    clipboard/
+    cut/
+    hash/
+    qr/
+    count/
 storage/               # gitignored
 NORTH.md
 CLAUDE.md

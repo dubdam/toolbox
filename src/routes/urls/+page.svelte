@@ -94,4 +94,59 @@
 			</Alert.Root>
 		{/if}
 	</div>
+
+	<div class="mt-8 space-y-6">
+		{#each results as r, i (`${i}-${r.input}`)}
+			{#if !r.error && r.host}
+				<div class="space-y-3 border-t pt-4">
+					<p class="font-mono text-sm break-all">{r.host.unicode}</p>
+					<div class="flex flex-wrap gap-2">
+						{#if r.host.punycode}
+							<Badge variant="outline">punycode {r.host.ascii}</Badge>
+						{/if}
+						{#if r.host.mixedScript}
+							<Badge variant="destructive">scripts mezclados</Badge>
+						{/if}
+						{#if r.amp}
+							<Badge variant="secondary">AMP → canónico</Badge>
+						{/if}
+						{#if r.mobile}
+							<Badge variant="secondary">móvil → canónico</Badge>
+						{/if}
+					</div>
+					{#if r.params.length}
+						<div class="overflow-x-auto">
+							<table class="w-full text-left text-sm">
+								<thead>
+									<tr class="text-muted-foreground">
+										<th class="py-1 pr-3 font-medium">param</th>
+										<th class="py-1 pr-3 font-medium">valor</th>
+										<th class="py-1 font-medium"></th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each r.params as p, pi (`${p.where}-${p.name}-${pi}`)}
+										<tr class="border-t font-mono text-xs">
+											<td class="py-1 pr-3 align-top">
+												{p.name}
+												{#if p.where === 'hash'}
+													<span class="text-muted-foreground">#</span>
+												{/if}
+											</td>
+											<td class="py-1 pr-3 align-top break-all">{p.value}</td>
+											<td class="py-1 align-top">
+												{#if p.tracking}
+													<Badge variant="outline">tracking</Badge>
+												{/if}
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		{/each}
+	</div>
 {/if}

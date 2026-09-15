@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 export const STORAGE_ROOT = 'storage';
 
-export const TOOL_DIRS = ['downloads', 'compress', 'transcribe', 'metadata', 'markdown'] as const;
+export const TOOL_DIRS = ['downloads', 'compress', 'transcribe', 'metadata', 'markdown', 'cut'] as const;
 
 export function ensureStorage(): void {
 	mkdirSync(STORAGE_ROOT, { recursive: true });

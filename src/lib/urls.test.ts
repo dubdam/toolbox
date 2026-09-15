@@ -78,6 +78,47 @@ describe('cleanUrl', () => {
 	});
 });
 
+describe('inspector', () => {
+	test('lists query params and marks tracking', () => {
+		const r = cleanUrl('https://example.com/a?keep=1&utm_source=x');
+		expect(r.params.map((p) => p.name).sort()).toEqual(['keep', 'utm_source']);
+		expect(r.params.find((p) => p.name === 'utm_source')?.tracking).toBe(true);
+		expect(r.params.find((p) => p.name === 'keep')?.tracking).toBe(false);
+		expect(r.host?.ascii).toBe('example.com');
+	});
+
+	test('decodes punycode and flags mixed scripts', () => {
+		const r = cleanUrl('https://xn--bcher-kva.example/a');
+		expect(r.host?.unicode).toBe('bücher.example');
+		expect(r.host?.punycode).toBe(true);
+		expect(r.host?.mixedScript).toBe(false);
+	});
+
+	test('unwraps google AMP viewer', () => {
+		const r = cleanUrl('https://www.google.com/amp/s/www.example.com/article');
+		expect(r.amp).toBe(true);
+		expect(r.output).toBe('https://www.example.com/article');
+	});
+
+	test('strips /amp suffix', () => {
+		const r = cleanUrl('https://www.example.com/article/amp');
+		expect(r.amp).toBe(true);
+		expect(r.output).toBe('https://www.example.com/article');
+	});
+
+	test('canonicalizes m.youtube.com', () => {
+		const r = cleanUrl('https://m.youtube.com/watch?v=dQw4w9wgGcQ&si=TRACK');
+		expect(r.mobile).toBe(true);
+		expect(r.output).toBe('https://youtube.com/watch?v=dQw4w9wgGcQ');
+	});
+
+	test('canonicalizes lang.m.wikipedia.org', () => {
+		const r = cleanUrl('https://es.m.wikipedia.org/wiki/Bitcoin');
+		expect(r.mobile).toBe(true);
+		expect(r.output).toBe('https://es.wikipedia.org/wiki/Bitcoin');
+	});
+});
+
 describe('cleanText', () => {
 	test('cleans each non-empty line', () => {
 		const r = cleanText('https://a.com/?utm_source=1\n\nhttps://x.com/u/status/2?s=20\n');

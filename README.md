@@ -31,6 +31,19 @@ bun run check
 
 El proceso **solo escucha en localhost**. No hay deploy ni nginx.
 
+URL amigable (sin editar hosts): [http://toolbox.localhost:3460/](http://toolbox.localhost:3460/) — Chrome/Edge/Firefox resuelven `*.localhost` a `127.0.0.1`.
+
+Desde el Explorador: doble click en `Abrir toolbox.cmd` (en esta carpeta). Arranca el server si hace falta y abre el browser.
+
+Arranque al iniciar sesión de Windows:
+
+```bash
+bun run autostart      # tarea al logon + acceso en el Escritorio
+bun run autostart:off  # sacarlo
+```
+
+Sigue siendo `127.0.0.1:3460`. No se publica a la LAN.
+
 `.env` y `storage/` no van a git.
 
 ### Transcripción

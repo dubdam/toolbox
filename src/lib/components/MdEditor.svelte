@@ -6,7 +6,7 @@
 
 	let {
 		value = $bindable(''),
-		placeholder = 'Soltá un .md o escribí acá'
+		placeholder = 'Soltá un .md, Ctrl+V, o escribí acá'
 	}: {
 		value: string;
 		placeholder?: string;

@@ -2,49 +2,61 @@
 	import './layout.css';
 	import { page } from '$app/state';
 	import { tools } from '$lib/tools';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { buttonVariants } from '$lib/components/ui/button/index.js';
+	import { TOOLBOX_URL } from '$lib/origin';
 	import { cn } from '$lib/utils.js';
 
 	let { data, children } = $props();
 
-	const missing = $derived(data.binaries.filter((b) => !b.path).length);
+	const required = $derived(new Set(tools.flatMap((t) => t.binaries)));
+	const missing = $derived(data.binaries.filter((b) => required.has(b.name) && !b.path).length);
+	const current = $derived(tools.find((t) => t.href === page.url.pathname));
+	const isHub = $derived(page.url.pathname === '/');
 </script>
 
 <svelte:head>
-	<title>toolbox</title>
+	<title>{current ? `${current.name} — toolbox` : 'toolbox'}</title>
 </svelte:head>
 
 <div class="flex min-h-svh flex-col">
-	<header class="border-b">
-		<div class="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-3">
-			<a href="/" class="font-medium tracking-tight">toolbox</a>
-			<nav class="flex flex-wrap items-center gap-1">
+	<header class="border-rule border-b">
+		<div class="mx-auto flex max-w-5xl items-baseline justify-between gap-4 px-4 py-3">
+			<div class="flex min-w-0 items-baseline gap-3">
+				<a href="/" class="font-display text-ink text-lg tracking-tight no-underline">
+					toolbox
+				</a>
+				{#if current}
+					<span class="text-ink-mute" aria-hidden="true">/</span>
+					<span class="text-ink truncate text-sm">{current.name}</span>
+				{/if}
+			</div>
+			<div class="font-mono flex shrink-0 items-baseline gap-3 text-[11px] tracking-wide">
+				<a href={TOOLBOX_URL} class="text-ink-mute hidden no-underline sm:inline">{TOOLBOX_URL.replace('http://', '')}</a>
+				{#if missing > 0}
+					<span class="text-red-800">{missing} binarios</span>
+				{:else}
+					<span class="text-ink-mute">local</span>
+				{/if}
+			</div>
+		</div>
+		{#if !isHub}
+			<nav class="mx-auto flex max-w-5xl flex-wrap gap-x-3 gap-y-1 px-4 pb-3 font-mono text-[11px] tracking-wide">
 				{#each tools as tool (tool.slug)}
 					<a
 						href={tool.href}
 						class={cn(
-							buttonVariants({
-								variant: page.url.pathname === tool.href ? 'secondary' : 'ghost',
-								size: 'sm'
-							})
+							'no-underline',
+							page.url.pathname === tool.href
+								? 'text-ink underline decoration-brass underline-offset-4'
+								: 'text-ink-mute hover:text-ink'
 						)}
 					>
 						{tool.name}
 					</a>
 				{/each}
 			</nav>
-			<div class="ml-auto flex items-center gap-2">
-				<Badge variant="outline">127.0.0.1:3460</Badge>
-				{#if missing > 0}
-					<Badge variant="destructive">{missing} binarios faltan</Badge>
-				{:else}
-					<Badge variant="secondary">binarios ok</Badge>
-				{/if}
-			</div>
-		</div>
+		{/if}
 	</header>
-	<main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+	<main class="mx-auto w-full max-w-5xl flex-1 px-4 {isHub ? 'py-5' : 'py-8'}">
 		{@render children()}
 	</main>
 </div>

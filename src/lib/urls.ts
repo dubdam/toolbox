@@ -1,6 +1,22 @@
+import { domainToUnicode, isMixedScript } from './idn';
+
 export interface RemovedParam {
 	name: string;
 	value: string;
+}
+
+export interface QueryParam {
+	name: string;
+	value: string;
+	tracking: boolean;
+	where: 'query' | 'hash';
+}
+
+export interface HostInfo {
+	ascii: string;
+	unicode: string;
+	punycode: boolean;
+	mixedScript: boolean;
 }
 
 export interface CleanResult {
@@ -8,7 +24,11 @@ export interface CleanResult {
 	output: string;
 	changed: boolean;
 	removed: RemovedParam[];
+	params: QueryParam[];
+	host: HostInfo | null;
 	unwrapped: boolean;
+	amp: boolean;
+	mobile: boolean;
 	error: string | null;
 }
 
@@ -177,6 +197,130 @@ function unwrapRedirect(url: URL): URL | null {
 	return null;
 }
 
+function withHost(url: URL, hostname: string): URL {
+	const next = new URL(url.toString());
+	next.hostname = hostname;
+	return next;
+}
+
+function unwrapAmp(url: URL): URL | null {
+	const host = hostOf(url);
+	const path = url.pathname;
+
+	const viewer =
+		host === 'google.com' ||
+		host.endsWith('.google.com') ||
+		host === 'cdn.ampproject.org' ||
+		host.endsWith('.cdn.ampproject.org');
+
+	if (viewer) {
+		const m =
+			path.match(/^\/(?:amp|c|v)\/s\/(.+)$/i) ??
+			path.match(/^\/(?:amp|c|v)\/(.+)$/i);
+		if (m?.[1]) {
+			const dest = parseLoose(`https://${m[1]}`);
+			if (dest) return dest;
+		}
+	}
+
+	if (/\/amp\/?$/i.test(path) && path.toLowerCase() !== '/amp' && path.toLowerCase() !== '/amp/') {
+		const next = new URL(url.toString());
+		next.pathname = path.replace(/\/amp\/?$/i, '') || '/';
+		return next;
+	}
+
+	if (/\.amp\.html$/i.test(path)) {
+		const next = new URL(url.toString());
+		next.pathname = path.replace(/\.amp\.html$/i, '.html');
+		return next;
+	}
+
+	return null;
+}
+
+function stripAmpParams(url: URL): boolean {
+	const drop = new Set(['amp', 'amp_js_v', 'amp_gsa', 'usqp']);
+	let changed = false;
+	const keep = new URLSearchParams();
+	for (const [name, value] of url.searchParams.entries()) {
+		const n = name.toLowerCase();
+		if (drop.has(n) || ((n === 'output' || n === 'outputtype') && value.toLowerCase() === 'amp')) {
+			changed = true;
+			continue;
+		}
+		keep.append(name, value);
+	}
+	if (changed) url.search = keep.toString();
+	return changed;
+}
+
+function unwrapMobile(url: URL): URL | null {
+	const host = hostOf(url);
+	const map: Record<string, string> = {
+		'm.youtube.com': 'youtube.com',
+		'm.wikipedia.org': 'wikipedia.org',
+		'mobile.twitter.com': 'x.com',
+		'm.twitter.com': 'x.com',
+		'mobile.x.com': 'x.com',
+		'm.facebook.com': 'www.facebook.com',
+		'touch.facebook.com': 'www.facebook.com',
+		'm.instagram.com': 'www.instagram.com',
+		'm.reddit.com': 'www.reddit.com',
+		'i.reddit.com': 'www.reddit.com',
+		'm.imdb.com': 'www.imdb.com'
+	};
+	if (map[host]) return withHost(url, map[host]);
+	const wiki = host.match(/^([a-z]{2,3})\.m\.wikipedia\.org$/);
+	if (wiki) return withHost(url, `${wiki[1]}.wikipedia.org`);
+	if (host.startsWith('m.amazon.')) return withHost(url, `www.${host.slice(2)}`);
+	return null;
+}
+
+function listParams(url: URL): QueryParam[] {
+	const host = hostOf(url);
+	const out: QueryParam[] = [];
+	for (const [name, value] of url.searchParams.entries()) {
+		out.push({ name, value, tracking: isTrackingParam(name, host), where: 'query' });
+	}
+	if (url.hash.length > 1 && url.hash.includes('=')) {
+		try {
+			const params = new URLSearchParams(url.hash.slice(1));
+			for (const [name, value] of params.entries()) {
+				out.push({ name, value, tracking: isTrackingParam(name, host), where: 'hash' });
+			}
+		} catch {
+			/* ignore malformed hash */
+		}
+	}
+	return out;
+}
+
+function hostInfo(url: URL): HostInfo {
+	const ascii = url.hostname;
+	const unicode = domainToUnicode(ascii);
+	return {
+		ascii,
+		unicode,
+		punycode: /xn--/i.test(ascii) || ascii !== unicode,
+		mixedScript: isMixedScript(unicode)
+	};
+}
+
+function blankResult(input: string, error: string | null): CleanResult {
+	return {
+		input,
+		output: error ? input : '',
+		changed: false,
+		removed: [],
+		params: [],
+		host: null,
+		unwrapped: false,
+		amp: false,
+		mobile: false,
+		error
+	};
+}
+
 function stripParams(url: URL): RemovedParam[] {
 	const host = hostOf(url);
 	const removed: RemovedParam[] = [];
@@ -237,23 +381,14 @@ function splitUrls(raw: string): string[] {
 
 export function cleanUrl(raw: string): CleanResult {
 	const input = raw.trim();
-	if (!input) {
-		return { input, output: '', changed: false, removed: [], unwrapped: false, error: null };
-	}
+	if (!input) return blankResult(input, null);
 
 	let url = parseLoose(input);
-	if (!url) {
-		return {
-			input,
-			output: input,
-			changed: false,
-			removed: [],
-			unwrapped: false,
-			error: 'no es una URL'
-		};
-	}
+	if (!url) return blankResult(input, 'no es una URL');
 
 	let unwrapped = false;
+	let amp = false;
+	let mobile = false;
 	for (let i = 0; i < 5; i++) {
 		const inner = unwrapRedirect(url);
 		if (!inner) break;
@@ -261,6 +396,21 @@ export function cleanUrl(raw: string): CleanResult {
 		unwrapped = true;
 	}
 
+	const ampUrl = unwrapAmp(url);
+	if (ampUrl) {
+		url = ampUrl;
+		amp = true;
+	}
+	if (stripAmpParams(url)) amp = true;
+
+	const mobileUrl = unwrapMobile(url);
+	if (mobileUrl) {
+		url = mobileUrl;
+		mobile = true;
+	}
+
+	const params = listParams(url);
+	const host = hostInfo(url);
 	const removed = [...stripParams(url), ...stripHashTracking(url)];
 
 	let output = url.toString();
@@ -274,7 +424,11 @@ export function cleanUrl(raw: string): CleanResult {
 		output,
 		changed: output !== input,
 		removed,
+		params,
+		host,
 		unwrapped,
+		amp,
+		mobile,
 		error: null
 	};
 }

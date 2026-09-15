@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { looksEscaped, unescapeMarkdown } from './md-unescape';
+import { fixFlankingEmphasis, looksBrokenEmphasis, looksEscaped, unescapeMarkdown } from './md-unescape';
 
 describe('unescapeMarkdown', () => {
 	test('bullet + escaped heading', () => {
@@ -38,5 +38,22 @@ describe('looksEscaped', () => {
 
 	test('ignores normal markdown', () => {
 		expect(looksEscaped('## Título\n\n- item\n')).toBe(false);
+	});
+});
+
+describe('fixFlankingEmphasis', () => {
+	test('inserts space after **13.** so CommonMark can bold it', () => {
+		expect(fixFlankingEmphasis('**13.**Precio, facturación')).toBe('**13.** Precio, facturación');
+		expect(looksBrokenEmphasis('**13.**Precio')).toBe(true);
+		expect(looksBrokenEmphasis('**13.** Precio')).toBe(false);
+	});
+
+	test('leaves **foo**bar alone', () => {
+		expect(fixFlankingEmphasis('**foo**bar')).toBe('**foo**bar');
+	});
+
+	test('skips fenced code', () => {
+		const src = '```\n**13.**Precio\n```';
+		expect(fixFlankingEmphasis(src)).toBe(src);
 	});
 });

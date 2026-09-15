@@ -33,17 +33,28 @@ Privacidad no es un suite aparte (VPN, Tor, contraseñas). Es el *por qué* esta
 | | Dashboard | Second brain | toolbox |
 | --- | --- | --- | --- |
 | Rol | leer el mundo | archivar lo elegido | transformar archivos y media |
-| Dónde corre | VPS (`home.agoraops.org`) | VPS (`ai.agoraops.org`) | local (`localhost`) |
+| Dónde corre | VPS (`home.agoraops.org`) | VPS (`ai.agoraops.org`) | local (`127.0.0.1:3460`, URL `toolbox.localhost`) |
 | Persistencia | cache efímero | fuente de verdad | working files, descartables |
 | Red | fetch de feeds | ingest + vault | downloader (yt-dlp) y transcripción (OpenAI API) |
 
 Sin integración obligatoria con los otros dos en v0. Un "mandar transcripción al second brain" es backlog, no requisito.
 
+## Alcance post-v0 (oleada 1)
+
+Además de las seis de v0:
+
+7. **Portapapeles** — pegar HTML de Word/Notion/Docs/web → plaintext o Markdown limpio. Saca tracking de URLs, zero-width, NBSP. 100% cliente.
+8. **Recortar** — fragmento de audio/video con ffmpeg (`00:13:42–00:17:08 → MP3` o copia del contenedor). Jobs + SSE, como el downloader.
+9. **Hash** — SHA-256 / SHA-512 / BLAKE3 / SHA-1 / MD5. Archivo o texto (UTF-8). Comparar y verificar un hash publicado. Stream in-process, sin binario.
+10. **Limpiar URLs (inspector)** — además del strip de tracking: listar query params, punycode/IDN, AMP y hosts móviles canónicos. **Sigue sin red.** Expandir shortlinks queda para después (botón explícito).
+11. **QR** — crear (URL, texto, Wi-Fi, Bitcoin URI, vCard) y leer de una imagen. 100% cliente (`uqr` + `jsQR`). Cámara queda para después.
+12. **Contar** — palabras, párrafos, caracteres, grafemas, bytes UTF-8, tiempo de lectura. 100% cliente.
+
 ## Alcance v0 (seis tools)
 
 1. **Downloader** — pegar URL de X o YouTube → video o audio en disco. Equivalente local de xdownload, con YouTube incluido. Un solo tool, no dos.
 2. **Compresor** — PNG/JPG, drop de archivos, preview de peso antes/después. Equivalente local de TinyPNG.
-3. **Markdown** — abrir un `.md`, verlo y editarlo con **ByteMD** (split fuente/preview, GFM). Guardar copia en `storage/markdown` o bajar el archivo. No reemplaza Obsidian: es un archivo suelto, no un vault.
+3. **Markdown** — abrir un `.md` o pegar con Ctrl+V, verlo y editarlo con **ByteMD** (split fuente/preview, GFM). Guardar copia en `storage/markdown` o bajar el archivo. No reemplaza Obsidian: es un archivo suelto, no un vault.
 4. **Transcripción** — audio/video → texto vía **OpenAI API**. Default **`gpt-transcribe`**. Opción **`whisper-1`** (Whisper hosteado, no local). ffmpeg extrae audio si hace falta. Misma familia de API que el second brain (`ai.agoraops.org` usa `gpt-4o-mini-transcribe`).
 5. **Metadatos** — **ver** y **sacar** metadatos de foto, video y audio (cámara, GPS, fechas, software). EXIF es el caso principal, no el límite de formatos.
 6. **Limpiar URLs** — pegar un link, salir sin `utm_*`, `fbclid`, `si=`, y el resto de tracking. Cero motores nuevos.
@@ -53,8 +64,9 @@ Sin integración obligatoria con los otros dos en v0. Un "mandar transcripción 
 - Splitter / merge de PDFs.
 - Hilo de X → Markdown.
 - Convertir/redimensionar a WebP/AVIF (puede colgarse del compresor después; no es tool nueva).
-- Recortar video, OCR, quitar fondo, favicon/OG generator.
-- Cifrar/descifrar (`age`), hash de archivo, redactar PDF.
+- OCR, quitar fondo, favicon/OG generator.
+- Cifrar/descifrar (`age`), redactar PDF.
+- Seguir redirects / expandir shortlinks (la tool de URLs no hereda red).
 - Auth, multi-usuario, exposición a la LAN o a internet.
 - Integración con el second brain o el dashboard.
 - VPN, Tor, gestor de contraseñas, fingerprint del browser, HIBP.
@@ -66,7 +78,7 @@ Sin integración obligatoria con los otros dos en v0. Un "mandar transcripción 
 - Splitter de PDFs.
 - Cifrar/descifrar con `age`.
 - Mandar resultado (transcripción, markdown) al second brain.
-- Recortar video (ffmpeg) después de bajar.
+- URL inspector: botón “seguir redirects” (red explícita, no default).
 
 ## Motores
 
@@ -80,10 +92,12 @@ JS in-process cuando el ecosistema es JS; CLI spawn cuando el ecosistema es un b
 | ByteMD | visor + editor MD (GFM, highlight). Sanitiza XSS por default. |
 | OpenAI Audio API | transcripción. Default `gpt-transcribe`; opción `whisper-1`. Key en `.env` (`OPENAI_API_KEY`). |
 | exifr + exiftool | metadatos: leer / strip |
-| jobs + sqlite + SSE | descargas y transcripciones largas |
-| (nada extra) | limpiar URLs: JS puro |
+| jobs + sqlite + SSE | descargas, transcripciones y recortes largos |
+| (nada extra) | limpiar URLs + portapapeles: JS puro |
+| @noble/hashes | BLAKE3 (SHA-* van por `Bun.CryptoHasher`) |
+| uqr + jsQR | QR: generar / leer de imagen, solo cliente |
 
-Dependencias de sistema en v0: `yt-dlp`, `ffmpeg`, `exiftool`. Transcripción pide `OPENAI_API_KEY` (no un modelo en disco). Si falta un binario o la key, esa tool lo dice claro; las otras siguen.
+Dependencias de sistema en v0: `yt-dlp`, `ffmpeg`, `exiftool`. Recortar pide también `ffprobe` (viene con ffmpeg). Transcripción pide `OPENAI_API_KEY` (no un modelo en disco). Si falta un binario o la key, esa tool lo dice claro; las otras siguen.
 
 No ImageMagick, Pandoc, Tesseract, qpdf, MAT2/Python, PyTorch ni whisper.cpp.
 
